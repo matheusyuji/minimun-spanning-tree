@@ -12,6 +12,7 @@
 #define recovery 3
 
 #define RAIZ 0
+
 // Vamos definir o descritor do processo
 
 typedef struct{ 
@@ -23,37 +24,48 @@ typedef struct{
 
 TipoProcesso *processo;
 
-// Função para verificar se o processo está correto
-int processo_corretor(int proc) {
-    return (processo[proc].state[proc] % 2 == 0);
-}
+void minimun_spanning_tree(int raiz, int tam_cluster, int N, int *estado) {
+    // Verifica se a raiz está correta antes de imprimir
+    if (estado[raiz] == 0) {
+        printf("Processo %d está falho. Não pode ser considerado.\n", raiz);
+        return;
+    }
 
-// Função para imprimir a árvore geradora mínima
-void imprimir_mst(int raiz, int dim_vcube, int N) {
+    // Imprime a raiz da árvore
     printf("Raiz: %d\n", raiz);
 
-    for (int s = 1; s <= dim_vcube; s++) {
-        int primeiro_corretor = -1;
+    // Percorre cada dimensão do vCube
+    for (int s = 1; s <= tam_cluster; s++) {
+        int primeiro_correto = -1;
 
-        // Encontrar o primeiro processo correto no cluster
+        // Obtém o conjunto de nós do cluster na dimensão s
         node_set *nodo = cis(raiz, s);
+
+        // Procura pelo primeiro processo correto no cluster
         for (int i = 0; i < nodo->size; i++) {
-            if (processo_corretor(nodo->nodes[i])) {
-                primeiro_corretor = nodo->nodes[i];
+            if (estado[nodo->nodes[i]] == 1) {  // Verifica se o processo está correto
+                primeiro_correto = nodo->nodes[i];
                 break;
             }
         }
 
-        if (primeiro_corretor != -1) {
-            printf("Filho: %d\n", primeiro_corretor);
+        // Se encontrar um processo correto
+        if (primeiro_correto != -1) {
+            // Imprime o filho correto
+            printf("Filho: %d\n", primeiro_correto);
+
             if (s == 1) {
-                printf("Processo %d é uma folha.\n", primeiro_corretor);
+                // Se s é 1, significa que o filho é uma folha
+                printf("Processo %d é uma folha.\n", primeiro_correto);
             } else {
-                // Enviar s para o filho
-                imprimir_mst(primeiro_corretor, s - 1, N);
+                // Caso contrário, continua a construir a árvore recursivamente
+                minimun_spanning_tree(primeiro_correto, s - 1, N, estado);
             }
+        } else {
+            printf("Nenhum processo correto encontrado na dimensão %d para o processo %d.\n", s, raiz);
         }
 
+        // Libera a memória alocada para o conjunto de nós
         free(nodo->nodes);
         free(nodo);
     }
@@ -65,8 +77,6 @@ int main (int argc, char *argv[]) {
             token,  // indica o processo que esta executando
             event, r, i, k,
             tam_cluster, first,
-            intervalo_testes= 30,
-            rodada_testes = 0,
             MaxTempoSimulac = 150;
            
   static char fa_name[5];
@@ -88,12 +98,15 @@ int main (int argc, char *argv[]) {
 
   processo = (TipoProcesso *) malloc(sizeof(TipoProcesso)*N);
 
+  int *estados = (int*) malloc(N*sizeof(int));
+
   for (i=0; i<N; i++) {
     memset(fa_name, '\0', 5);
     sprintf(fa_name, "%d", i);
     processo[i].id = facility(fa_name,1);
     processo[i].state = (int*) malloc(N*sizeof(int)); // aloca espaco para o vetor state de cada processo
     processo[i].cluster = (int*) malloc(tam_cluster*sizeof(int)); 
+    estados[i] = 1;
     for (k = 0; k < N; k++) {
       processo[i].state[k] = -1;
     }  
@@ -104,11 +117,6 @@ int main (int argc, char *argv[]) {
     for (k = 0; k < tam_cluster; k++) {
       nodo = cis(i, k+1);
       processo[i].cluster[k] = nodo->nodes[0];
-      //printf ("%ld\n", nodo->size);
-      //for (int l = 0; l < nodo->size; l++) {
-        //printf ("%d ", nodo->nodes[l]);
-      //}
-      //printf ("\n");
       free(nodo->nodes);
       free(nodo);
     }
@@ -128,15 +136,30 @@ int main (int argc, char *argv[]) {
   //schedule(fault, 31.0, 1);
   //schedule(recovery, 61.0, 1);
 
+  // Teste 1
+  // Raiz = 0
+  // tam_cluster = 2 e nenhum processo falho
+
+  // Teste 2
+  // Raiz = 0
+  // tam_cluster = 3 e nenhum processo falho
+
   // Teste 3
-  schedule(fault, 31.0, 1);
-  schedule(fault, 31.0, 2);
-  schedule(fault, 31.0, 4);
-  schedule(fault, 31.0, 7);
+  // Raiz = 0
+  // tam_cluster = 3 e 1,2,4 e 7 processos falhos
+  //schedule(fault, 31.0, 1);
+  //schedule(fault, 31.0, 2);
+  //schedule(fault, 31.0, 4);
+  //schedule(fault, 31.0, 7);
 
   // Teste 4
+  // Raiz = 7
+  // tam_cluster = 3 e 0 processo falho
   //schedule(fault, 31.0, 0);
-  //schedule(recovery, 61.0, 1);
+
+  // Teste 5 
+  // Raiz = 0
+  // tam_cluster = 4 e nenhum processo falho
 
   // agora vem o loop principal do simulador
 
@@ -146,8 +169,6 @@ int main (int argc, char *argv[]) {
   printf("   Este programa foi executado para: N=%d processos.\n", N); 
   printf("           Tempo Total de Simulacao = %d\n", MaxTempoSimulac);
   puts("===============================================================");
-
-  rodada_testes++;
 
   while(time() < MaxTempoSimulac) {
     cause(&event, &token);
@@ -161,7 +182,7 @@ int main (int argc, char *argv[]) {
 
             // testa se o primeiro processo do cluster esta correto
             if (status(processo[first].id) == 0) { 
-              printf("Processo %d testou o Processo %d CORRETO no tempo %4.1f\n", token, first, time());
+              //printf("Processo %d testou o Processo %d CORRETO no tempo %4.1f\n", token, first, time());
               
               if (processo[token].state[first] % 2 == 1)
                 processo[token].state[first]++;
@@ -170,11 +191,11 @@ int main (int argc, char *argv[]) {
               for (k = 0; k < N; k++) {         
                 if ((processo[first].state[k] > processo[token].state[k])) {         
                   processo[token].state[k] = processo[first].state[k];
-                  printf("Processo %d recebeu INFORMACAO do Processo %d no tempo %4.1f\n", token, k, time());
+                  //printf("Processo %d recebeu INFORMACAO do Processo %d no tempo %4.1f\n", token, k, time());
                 }
               }
             } else {
-              printf("Processo %d testou o Processo %d FALHO no tempo %4.1f\n", token, first, time());
+              //printf("Processo %d testou o Processo %d FALHO no tempo %4.1f\n", token, first, time());
               if (processo[token].state[first] % 2 == 0)
                 processo[token].state[first]++;
             }
@@ -195,22 +216,16 @@ int main (int argc, char *argv[]) {
           break;
         case fault:
           r = request(processo[token].id, token, 0);
-          printf ("O processo %d eh falho\n", token);
+          estados[token] = 0;
           printf("Socooorro!!! Sou o processo %d  e estou falhando no tempo %4.1f\n", token, time());
           break;
         case recovery:
           release(processo[token].id, token);
-          printf ("O processo %d recuperou\n", token);
+          estados[token] = 1;
           printf("Viva!!! Sou o processo %d e acabo de recuperar no tempo %4.1f\n", token, time());
           schedule(test, 1.0, token);
           break;
       } // switch
-      //if(time() > intervalo_testes*rodada_testes+intervalo_testes/2){
-        //imprimir_mst(RAIZ, tam_cluster, N);
-        //rodada_testes++;
-      //}
-      //puts("");
   } // while
-  imprimir_mst(RAIZ, tam_cluster, N);
-  puts("");
+  minimun_spanning_tree(RAIZ, tam_cluster, N, estados);
 } // tempo.c
