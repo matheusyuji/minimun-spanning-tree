@@ -7,6 +7,20 @@ A árvore geradora mínima deve conectar todos os processos do vCube, levando em
 ## Desenvolvimento
 Foi adicionada uma nova função `minimun_spanning_tree()` para construir a árvore sobre o vCube. Esta função itera sobre cada dimensão do vCube. Para cada dimensão s, ela obtém o conjunto de nós do cluster correspondente usando a função `cis(raiz, s)`. O conjunto de nós (nodo) é uma estrutura que contém todos os processos na dimensão s do vCube. A função busca pelo primeiro processo correto no conjunto de nós e, ao encontrar um processo correto, armazena seu identificador em primeiro_correto e interrompe a busca. Se um processo correto for encontrado, o código imprime o identificador do filho. Se s for 1, isso indica que o processo filho é uma folha da árvore, e a construção da árvore para esse ramo é concluída. Caso contrário, a função é chamada recursivamente para continuar a construção da árvore a partir do filho correto.
 
+## Como executar
+
+Para compilar o programa:
+
+```bash
+make
+```
+
+Para executar o programa:
+
+```bash
+./vcube < numero de processos >
+```
+
 ## Testes
 Os testes foram conduzidos em cinco cenários distintos, e os resultados estão detalhados no diretório `test`. Para melhorar a legibilidade dos logs, algumas informações do vCube foram omitidas.
 1. Raiz: 0; Dimensões do vCube: 2; nenhum processo falho;
